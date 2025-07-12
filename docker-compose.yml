@@ -1,0 +1,45 @@
+version: '3'
+
+services:
+  # Django web application service
+  web:
+    build: .
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  # Flower Service
+  flower:
+    image: mher/flower
+    command: celery flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./:/app
+    depends_on:
+      - worker
+
+  # Celery worker service
+  worker:
+    build: .
+    command: celery -A rank_analysis.celery_services.celery_services.celery_app worker --loglevel=INFO
+    volumes:
+      - ./:/app
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+networks:
+  default:
+    driver: bridge
